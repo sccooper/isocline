@@ -21,6 +21,10 @@
 // Environment
 //-------------------------------------------------------------
 
+#define IC_ASYNC_SIGNALLED  0x1
+#define IC_ASYNC_STOP       0x2
+#define IC_ASYNC_PRINT      0x4
+
 struct ic_env_s {
   alloc_t*        mem;              // potential custom allocator
   ic_env_t*       next;             // next environment (used for proper deallocation)
@@ -49,6 +53,9 @@ struct ic_env_s {
   bool            no_autobrace;     // enable automatic brace insertion?
   bool            no_lscolors;      // use LSCOLORS/LS_COLORS to colorize file name completions?
   long            hint_delay;       // delay before displaying a hint in milliseconds
+  ic_begin_print_fun_t* begin_print;   // return true if there is output
+  ic_end_print_fun_t* end_print;       // print any output
+  unsigned char async __attribute__((aligned)); // set by ic_async functions
 };
 
 ic_private char*        ic_editline(ic_env_t* env, const char* prompt_text);

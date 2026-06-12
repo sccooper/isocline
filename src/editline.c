@@ -838,10 +838,33 @@ static void edit_insert_char(ic_env_t* env, editor_t* eb, char c) {
 
 #include "editline_completion.c"
 
-
 //-------------------------------------------------------------
 // Edit line: main edit loop
 //-------------------------------------------------------------
+
+static void edit_print( ic_env_t* env, editor_t* eb )
+{
+        bool printing = env->begin_print && env->begin_print();
+
+        if (printing) {
+                term_end_raw(env->term,false);
+                tty_end_raw(env->tty);
+
+                term_clear_line(env->term);
+        }
+
+        __atomic_fetch_and(&env->async, ~IC_ASYNC_PRINT, __ATOMIC_SEQ_CST);
+
+        if (env->end_print)
+                env->end_print();
+
+        if (printing) {
+                tty_start_raw(env->tty);
+                term_start_raw(env->term);
+
+                edit_refresh(env, eb);
+        }
+}
 
 static char* edit_line( ic_env_t* env, const char* prompt_text )
 {
@@ -903,7 +926,7 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         sbuf_clear(eb.hint_help);
       }
     }
-    
+
     // update terminal in case of a resize
     if (tty_term_resize_event(env->tty)) {
       edit_resize(env,&eb);            
@@ -913,6 +936,18 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
     const bool had_hint = (sbuf_len(eb.hint) > 0);
     sbuf_clear(eb.hint);
     sbuf_clear(eb.hint_help);
+
+    if (c == KEY_CTRL_C) {
+            // clear any async flags except async print, which is only cleared between the begin/end print callbacks
+            const unsigned char async = __atomic_fetch_and(&env->async, IC_ASYNC_PRINT, __ATOMIC_SEQ_CST);
+
+            if (async & IC_ASYNC_PRINT)
+                    edit_print(env, &eb);
+
+            // only keep the ctrl-c if we're stopping
+            if (!(async & IC_ASYNC_STOP))
+                    c = KEY_NONE;
+    }
 
     // if the user tries to move into a hint with left-cursor or end, we complete it first
     if ((c == KEY_RIGHT || c == KEY_END) && had_hint) {
@@ -1098,7 +1133,6 @@ static char* edit_line( ic_env_t* env, const char* prompt_text )
         break;
       }
     }
-
   }
 
   // goto end

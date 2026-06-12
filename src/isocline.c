@@ -150,10 +150,29 @@ void ic_style_close(void) {
 // Interface
 //-------------------------------------------------------------
 
+static bool async_signal(ic_env_t* env, unsigned char signal) {
+  // only send ctrl-c once
+  if (__atomic_fetch_or(&env->async, signal|IC_ASYNC_SIGNALLED, __ATOMIC_SEQ_CST) & IC_ASYNC_SIGNALLED)
+          return true;
+  return tty_async_stop(env->tty);
+}
+
+void ic_set_async_printer(ic_begin_print_fun_t* begin, ic_end_print_fun_t* end) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return;
+  env->begin_print = begin;
+  env->end_print = end;
+}
+
+ic_public bool ic_async_print(void) {
+  ic_env_t* env = ic_get_env(); if (env==NULL) return false;
+  if (env->tty==NULL) return false;
+  return async_signal(env, IC_ASYNC_PRINT);
+}
+
 ic_public bool ic_async_stop(void) {
   ic_env_t* env = ic_get_env(); if (env==NULL) return false;
   if (env->tty==NULL) return false;
-  return tty_async_stop(env->tty);
+  return async_signal(env, IC_ASYNC_STOP);
 }
 
 static void set_prompt_marker(ic_env_t* env, const char* prompt_marker, const char* cprompt_marker) {

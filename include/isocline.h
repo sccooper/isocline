@@ -401,6 +401,20 @@ void ic_set_insertion_braces(const char* brace_pairs);
 
 /// \}
 
+//--------------------------------------------------------------
+// Async output
+//--------------------------------------------------------------
+
+typedef bool (ic_begin_print_fun_t)(void);
+typedef void (ic_end_print_fun_t)(void);
+
+void ic_set_async_printer(ic_begin_print_fun_t* begin, ic_end_print_fun_t* end);
+
+/// Thread-safe way to asynchronously call the async printer
+/// from within ic_readline
+bool ic_async_print(void);
+
+/// \}
 
 //--------------------------------------------------------------
 // Advanced Completion
